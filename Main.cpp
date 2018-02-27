@@ -6,6 +6,7 @@
 // Printing notation: https://www.daniweb.com/programming/software-development/threads/310229/printing-infix-prefix-postfix-from-expression-tree
 // Building Tree: https://stackoverflow.com/questions/9136153/build-binary-expression-tree
 
+#include <stdio.h>
 #include <iostream>
 #include "Node.h"
 #include <string.h>
