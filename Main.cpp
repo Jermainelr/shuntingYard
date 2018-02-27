@@ -23,6 +23,7 @@ struct NodeStack {
 
 bool isNumber(char value);
 bool isOperator(char value);
+bool isLeftAssociative(char value);
 int getPrecedence(char value);
 void tokenOutputPush(Token* & output, char value);
 void tokenStackPop(Token* &stack);
@@ -84,9 +85,11 @@ Token* shuntingYard(char* input) {
 		}
 		// If an operator push in the right order based on precedence
 		else if (isOperator(input[i])) {
-			if(stack != NULL && getPrecedence(stack->value) >= getPrecedence(input[i])) {
-				tokenOutputPush(output, stack->value);
-				tokenStackPop(stack);
+			if(stack != NULL && (getPrecedence(stack->value) > getPrecedence(input[i])
+				|| getPrecedence(stack->value) == getPrecedence(input[i])
+				&& isLeftAssociative(stack->value))) {
+					tokenOutputPush(output, stack->value);
+					tokenStackPop(stack);
 			}
 			tokenStackPush(stack, input[i]);
 		}
@@ -166,22 +169,27 @@ bool isOperator(char value) {
 	return value == '^' || value == 'x' || value == '/' || value == '+' || value == '-';
 }
 
+// Tells if an operator is left associative
+bool isLeftAssociative(char value) {
+	return value == 'x' || value == '/' || value == '+' || value == '-';
+}
+
 // Gives a numerical value that represents the precedence of a given token
 int getPrecedence(char value) {
 	int precedence = 0;
 	if (value == '^') {
 		precedence = 4;
 	}
-	else if (value == 'x') {
-		precedence = 3;
-	}
 	else if (value == '/') {
 		precedence = 3;
 	}
-	else if (value == '+') {
-		precedence = 2;
+	else if (value == 'x') {
+		precedence = 3;
 	}
 	else if (value == '-') {
+		precedence = 2;
+	}
+	else if (value == '+') {
 		precedence = 2;
 	}
 	return precedence;
