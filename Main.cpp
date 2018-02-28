@@ -6,14 +6,15 @@
 // Printing notation: https://www.daniweb.com/programming/software-development/threads/310229/printing-infix-prefix-postfix-from-expression-tree
 // Building Tree: https://stackoverflow.com/questions/9136153/build-binary-expression-tree
 
-#include <stdio.h>
 #include <iostream>
 #include "Node.h"
 #include <string.h>
+#include <vector>
+
 using namespace std;
 
 struct Token {
-	char value;
+	string* value;
 	Token* next;
 };
 
@@ -22,30 +23,33 @@ struct NodeStack {
 	NodeStack* next;
 };
 
-bool isNumber(char value);
-bool isOperator(char value);
-bool isLeftAssociative(char value);
-int getPrecedence(char value);
-void tokenOutputPush(Token* & output, char value);
+vector<string*>* parseInput(char* input);
+bool isNumber(string* value);
+bool isOperator(string* value);
+bool isLeftAssociative(string* value);
+int getPrecedence(string* value);
+void tokenOutputPush(Token* & output, string* value);
 void tokenStackPop(Token* &stack);
-void tokenStackPush(Token* & stack, char value);
-Token* shuntingYard(char* input);
+void tokenStackPush(Token* & stack, string* value);
+Token* shuntingYard(vector<string*>* input);
 NodeStack* buildTree(Token* output);
 void nodePush(NodeStack* & nodeStack, Node* node);
 Node* nodePop(NodeStack* &nodeStack);
 void printInfix(Node* root);
 void printPostfix(Node* root);
 void printPrefix(Node* root);
+void printNumber(Token* & output);
 
 int main() {
     char input[81];
     cout << "Enter Infix Expression" << endl;
     gets(input);
+	vector<string*>* parsedInput = parseInput(input);
 	//Apply shunting yard algorithm
-    Token* output = shuntingYard(input);
+    Token* output = shuntingYard(parsedInput);
     // output the postfix expression
     for (Token* t = output; t != NULL; t = t->next) {
-		cout << t->value;
+		cout << *t->value << ' ';
     }
 	cout << endl;
 	//Build the expression tree
@@ -73,34 +77,62 @@ int main() {
 	} while(strcmp(command, "QUIT") != 0); 
 }
 
+//Parses the input string into seperate strings for each multi digit number, operator
+//etc.
+vector<string*>* parseInput(char* input) {
+	vector<string*>* result = new vector<string*>;
+	int len = strlen(input);
+	string* currentNumber = NULL;
+	for (int i = 0; i < len; i++) {
+		if (input[i] >= '0' && input[i] <= '9') {
+			if (currentNumber == NULL) {
+				currentNumber = new string;
+			}
+			*currentNumber += input[i];
+		}
+		else {
+			if(currentNumber != NULL) {
+				result->push_back(currentNumber);
+				currentNumber = NULL;
+			}
+			string* nonNumber = new string;
+			*nonNumber += input[i];
+			result->push_back(nonNumber);
+		}
+	}
+	if(currentNumber != NULL) {
+		result->push_back(currentNumber);
+	}
+	return result;
+}
+
 //Shunting yard algorithm
-Token* shuntingYard(char* input) {
+Token* shuntingYard(vector<string*>* input) {
 	Token* output = NULL;
 	Token* stack = NULL;
-	int length = strlen(input);
 	//Walk the input tokens
-	for (int i = 0; i < length; i++) {
+	for (vector<string*>::iterator it = input->begin(); it != input->end(); it++) {
 		// If a number pass it to the output
-		if(isNumber(input[i])) {
-			tokenOutputPush(output, input[i]);
+		if(isNumber(*it)) {
+			tokenOutputPush(output, *it);
 		}
 		// If an operator push in the right order based on precedence
-		else if (isOperator(input[i])) {
-			if(stack != NULL && (getPrecedence(stack->value) > getPrecedence(input[i])
-				|| getPrecedence(stack->value) == getPrecedence(input[i])
-				&& isLeftAssociative(stack->value))) {
+		else if (isOperator(*it)) {
+			while(stack != NULL && (getPrecedence(stack->value) > getPrecedence(*it)
+				|| getPrecedence(stack->value) == getPrecedence(*it)
+				&& isLeftAssociative(stack->value) && *stack->value != "(")) {
 					tokenOutputPush(output, stack->value);
 					tokenStackPop(stack);
 			}
-			tokenStackPush(stack, input[i]);
+			tokenStackPush(stack, *it);
 		}
 		// If opening expression put in on the stack
-		else if (input[i] == '(') {
-			tokenStackPush(stack, input[i]);
+		else if (**it == "(") {
+			tokenStackPush(stack, *it);
 		}
-		else if (input[i] == ')') {
+		else if (**it == ")") {
 			// If closing an expression output the current stack
-			while (stack != NULL && stack->value != '(') {
+			while (stack != NULL && *stack->value != "(") {
 				tokenOutputPush(output, stack->value);
 				tokenStackPop(stack);
 			}
@@ -161,43 +193,43 @@ Node* nodePop(NodeStack* &nodeStack) {
 }
 
 // Tells if a token is a number
-bool isNumber(char value) {
-	return value >= '0' && value <= '9';
+bool isNumber(string* value) {
+	return (*value)[0] >= '0' && (*value)[0] <= '9';
 }
 
 // Tells if operator
-bool isOperator(char value) {
-	return value == '^' || value == 'x' || value == '/' || value == '+' || value == '-';
+bool isOperator(string* value) {
+	return *value == "^" || *value == "x" || *value == "/" || *value == "+" || *value == "-";
 }
 
 // Tells if an operator is left associative
-bool isLeftAssociative(char value) {
-	return value == 'x' || value == '/' || value == '+' || value == '-';
+bool isLeftAssociative(string* value) {
+	return *value == "x" || *value == "/" || *value == "+" || *value == "-";
 }
 
 // Gives a numerical value that represents the precedence of a given token
-int getPrecedence(char value) {
+int getPrecedence(string* value) {
 	int precedence = 0;
-	if (value == '^') {
+	if (*value == "^") {
 		precedence = 4;
 	}
-	else if (value == '/') {
+	else if (*value == "/") {
 		precedence = 3;
 	}
-	else if (value == 'x') {
+	else if (*value == "x") {
 		precedence = 3;
 	}
-	else if (value == '-') {
+	else if (*value == "-") {
 		precedence = 2;
 	}
-	else if (value == '+') {
+	else if (*value == "+") {
 		precedence = 2;
 	}
 	return precedence;
 }
 
 // Adds a token at the end of the output
-void tokenOutputPush(Token* & output, char value) {
+void tokenOutputPush(Token* & output, string* value) {
 	 Token* entry = new Token;
 	 entry->value = value;
 	 entry->next = NULL;
@@ -224,7 +256,7 @@ void tokenStackPop(Token* &stack) {
 }
 
 // Adds a token at the end of the stack
-void tokenStackPush(Token* & stack, char value) {
+void tokenStackPush(Token* & stack, string* value) {
 	 Token* entry = new Token;
 	 entry->value = value;
 	 entry->next = stack;
@@ -236,14 +268,14 @@ void printInfix(Node* root) {
 	if (root != NULL) {
 		if (isOperator(root->getValue()))
 		{
-			cout << "(";
+			cout << '(';
 		}
 		printInfix(root->getLeft());
-		cout<< root->getValue();
+		cout<< *root->getValue() << ' ';
 		printInfix(root->getRight());
 		if (isOperator(root->getValue()))
 		{
-			cout << ")"; 
+			cout << ')'; 
 		}
 	} 
 }
@@ -253,14 +285,14 @@ void printPostfix(Node* root) {
 	if (root != NULL) {
 		printPostfix(root->getLeft());
 		printPostfix(root->getRight());
-		cout<< root->getValue();
+		cout<< *root->getValue() << ' ';
 	}
 }
 
 // Prefix algorithm
 void printPrefix(Node* root) {
 	if (root != NULL) {
-		cout<< root->getValue();
+		cout<< *root->getValue() << ' ';
 		printPostfix(root->getLeft());
 		printPostfix(root->getRight());
 	}
